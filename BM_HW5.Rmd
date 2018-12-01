@@ -2,7 +2,7 @@
 title: "Homework 5"
 author: "Xinyi Lin"
 date: "11/24/2018"
-output: word_document
+output: github_document
 ---
 
 ```{r}
@@ -22,6 +22,8 @@ head(state.x77)
 state_clean_df =
   as.tibble(state.x77) %>% 
   janitor::clean_names()
+
+state_clean_df 
 ```
 
 ## Question 1-a)
@@ -44,10 +46,10 @@ step(start_fit, direction = 'forward', scope = list(upper = all_fit, lower = sta
 
 ```{r}
 all_fit = lm(life_exp ~ ., data = state_clean_df)
-step(all_fit, direction='both')
+step(all_fit, direction = 'both')
 ```
 
-According to the result, when using backward method, we can find the 'best subset' is 'population, murder, hs_grad and frost'. When using forward method, the 'best subset' is 'population, income, illiteracy, murder, hs_grad, frost and area'. When using stepwise method, the 'best subset' is 'population, murder, hs_grad and frost'. The 'best subset' of backward and stepwise methods are the same and the 'best subset' of forward method is larger than other two subsets.
+According to the results, when using three methods, we get same 'best subset' which 'population, murder, hs_grad and frost'. 
 
 ## Question 1-b)
 
@@ -70,7 +72,7 @@ summary(fitted_less_model)
 anova(fitted_model, fitted_less_model)
 ```
 
-The adjuested r-square of the model without 'population' is slightly less than the adjuested r-square of the model with 'population' and AIC of the model with 'population' also perform better. However, add `population` to the model cause a big change in the coefficient of `hs_grad` and there correlation are closed to 1, which means their collinearity is high, so discarding the `population` variable is a better choice.
+The adjuested r-square of the model without 'population' is slightly less than the adjuested r-square of the model with 'population' and AIC of the model with 'population' also perform better, so keeping the `population` variable is a better choice.
 
 ## Question 1-c)
 
@@ -94,10 +96,10 @@ state_criterion_df =
   select(life_exp, everything())
 
 # Printing the 2 best models of each size, using the Cp criterion:
-leaps(x = state_criterion_df[,2:8], y = state_criterion_df[,1], nbest = 2, method = "Cp")
+leaps(x = state_criterion_df[,2:8], y = state_criterion_df[,1], nbest = 1, method = "Cp")
 
 # Printing the 2 best models of each size, using the adjusted R^2 criterion:
-leaps(x = state_criterion_df[,2:8], y = state_criterion_df[,1], nbest = 2, method = "adjr2")
+leaps(x = state_criterion_df[,2:8], y = state_criterion_df[,1], nbest = 1, method = "adjr2")
 
 # Summary of models for each size (one model per size)
 b = regsubsets(life_exp ~ ., data = state_criterion_df)
@@ -124,27 +126,59 @@ AIC(fitted_4_model)
 AIC(fitted_4_model, k = log(length(state_criterion_df$life_exp)))
 
 # AIC of the 4-predictor model:
-fitted_5_model <- lm(life_exp ~ murder + hs_grad + frost + , data = state_criterion_df)
+fitted_5_model <- lm(life_exp ~ murder + hs_grad + frost + population, data = state_criterion_df)
 AIC(fitted_5_model)
 
 # BIC
 AIC(fitted_5_model, k = log(length(state_criterion_df$life_exp)))
 
-# How do the 6- and 4-predictors models compare in terms of AIC, R-adj, Cp?
+# AIC of the 5-predictor model:
+fitted_6_model <- lm(life_exp ~ murder + hs_grad + frost + population + income, data = state_criterion_df)
+AIC(fitted_6_model)
 
-#############################################################################
-#   A more compact way to look at the test-based results                    #
-#############################################################################
+# BIC
+AIC(fitted_6_model, k = log(length(state_criterion_df$life_exp)))
 
-best <- function(model, ...) 
-{
-  subsets <- regsubsets(formula(model), model.frame(model), ...)
-  subsets <- with(summary(subsets),
-                  cbind(p = as.numeric(rownames(which)), which, rss, rsq, adjr2, cp, bic))
-  
-  return(subsets)
-}  
+# AIC of the 6-predictor model:
+fitted_7_model <- lm(life_exp ~ murder + hs_grad + frost + population + income + illiteracy, data = state_criterion_df)
+AIC(fitted_7_model)
+
+# BIC
+AIC(fitted_7_model, k = log(length(state_criterion_df$life_exp)))
+
+# AIC of the 7-predictor model:
+fitted_8_model <- lm(life_exp ~ murder + hs_grad + frost + population + income + illiteracy + area, data = state_criterion_df)
+AIC(fitted_8_model)
+
+# BIC
+AIC(fitted_8_model, k = log(length(state_criterion_df$life_exp)))
 ```
+
+models               | model 1 | model 2 | model 3 | model 4 | model 5
+-------------------- | ------- | ------- | ------  | ------- | ------- 
+number of parameters | p = 4   | p = 5   | p = 6   | p = 7   | p = 8
+Cp                   | 3.7399  | 2.0197  | 4.0087  | 6.0020  | 8.0000
+adjusted r-square    | 0.6939  | 0.7126  | 0.7061  | 0.6993  | 0.6922
+AIC                  | 117.974 | 115.733 | 117.720 | 119.712 | 121.709
+BIC                  | 127.534 | 127.205 | 131.104 | 135.008 | 138.917
+
+Since model with 5 parameters has highest adjusted r-square, lowest AIC and BIC and its Cp lower than p, so 'best subset' is 'pulation, murder, hs_grad and frost'. 
+
+## Question 4
+
+Since the model selected from part 2 and part 3 is the same which is `lm(life_exp ~ murder + hs_grad + frost + population, data = state_criterion_df)`, so the final model is `lm(life_exp ~ murder + hs_grad + frost + population, data = state_criterion_df)`.
+
+### leverage
+
+
+
+### model assumptions
+
+```{r}
+par(mfrow=c(2,2))
+plot(fitted_5_model)
+```
+
 
 
 
