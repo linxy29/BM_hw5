@@ -7,20 +7,41 @@ Xinyi Lin
 library(tidyverse)
 ```
 
-    ## ── Attaching packages ─────────────────────────────────────── tidyverse 1.2.1 ──
+    ## ── Attaching packages ──────────────────────────────────────────────────────────────────────── tidyverse 1.2.1 ──
 
     ## ✔ ggplot2 3.1.0     ✔ purrr   0.2.5
     ## ✔ tibble  1.4.2     ✔ dplyr   0.7.8
     ## ✔ tidyr   0.8.2     ✔ stringr 1.3.1
     ## ✔ readr   1.1.1     ✔ forcats 0.3.0
 
-    ## ── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──
+    ## ── Conflicts ─────────────────────────────────────────────────────────────────────────── tidyverse_conflicts() ──
     ## ✖ dplyr::filter() masks stats::filter()
     ## ✖ dplyr::lag()    masks stats::lag()
 
 ``` r
 library(faraway)
 library(leaps)
+library(caret)
+```
+
+    ## Loading required package: lattice
+
+    ## 
+    ## Attaching package: 'lattice'
+
+    ## The following object is masked from 'package:faraway':
+    ## 
+    ##     melanoma
+
+    ## 
+    ## Attaching package: 'caret'
+
+    ## The following object is masked from 'package:purrr':
+    ## 
+    ##     lift
+
+``` r
+library(patchwork)
 ```
 
 Input and tidy data
@@ -69,7 +90,82 @@ state_clean_df
     ## 10       4931   4091        2       68.5   13.9    40.6    60  58073
     ## # ... with 40 more rows
 
-Question 1-a)
+Question 1
+----------
+
+``` r
+summary(state_clean_df)
+```
+
+    ##    population        income       illiteracy       life_exp    
+    ##  Min.   :  365   Min.   :3098   Min.   :0.500   Min.   :67.96  
+    ##  1st Qu.: 1080   1st Qu.:3993   1st Qu.:0.625   1st Qu.:70.12  
+    ##  Median : 2838   Median :4519   Median :0.950   Median :70.67  
+    ##  Mean   : 4246   Mean   :4436   Mean   :1.170   Mean   :70.88  
+    ##  3rd Qu.: 4968   3rd Qu.:4814   3rd Qu.:1.575   3rd Qu.:71.89  
+    ##  Max.   :21198   Max.   :6315   Max.   :2.800   Max.   :73.60  
+    ##      murder          hs_grad          frost             area       
+    ##  Min.   : 1.400   Min.   :37.80   Min.   :  0.00   Min.   :  1049  
+    ##  1st Qu.: 4.350   1st Qu.:48.05   1st Qu.: 66.25   1st Qu.: 36985  
+    ##  Median : 6.850   Median :53.25   Median :114.50   Median : 54277  
+    ##  Mean   : 7.378   Mean   :53.11   Mean   :104.46   Mean   : 70736  
+    ##  3rd Qu.:10.675   3rd Qu.:59.15   3rd Qu.:139.75   3rd Qu.: 81162  
+    ##  Max.   :15.100   Max.   :67.30   Max.   :188.00   Max.   :566432
+
+``` r
+population_boxplot = 
+  state_clean_df %>% 
+  ggplot(aes(x = "population", y = population)) +
+  geom_boxplot()
+```
+
+``` r
+illiteracy_boxplot = 
+  state_clean_df %>% 
+  ggplot(aes(x = "illiteracy", y = illiteracy)) +
+  geom_boxplot()
+```
+
+``` r
+life_exp_boxplot = 
+  state_clean_df %>% 
+  ggplot(aes(x = "life_exp", y = life_exp)) +
+  geom_boxplot()
+```
+
+``` r
+murder_boxplot = 
+  state_clean_df %>% 
+  ggplot(aes(x = "murder", y = murder)) +
+  geom_boxplot()
+```
+
+``` r
+hs_grad_boxplot = 
+  state_clean_df %>% 
+  ggplot(aes(x = "hs_grad", y = hs_grad)) +
+  geom_boxplot()
+```
+
+``` r
+frost_boxplot = 
+  state_clean_df %>% 
+  ggplot(aes(x = "frost", y = frost)) +
+  geom_boxplot()
+```
+
+``` r
+area_boxplot = 
+  state_clean_df %>% 
+  ggplot(aes(x = "area", y = area)) +
+  geom_boxplot()
+
+(population_boxplot + illiteracy_boxplot + area_boxplot)/(murder_boxplot + hs_grad_boxplot + frost_boxplot + life_exp_boxplot)
+```
+
+![](BM_HW5_files/figure-markdown_github/unnamed-chunk-11-1.png)
+
+Question 2-a)
 -------------
 
 ### Backward
@@ -279,7 +375,7 @@ step(all_fit, direction = 'both')
 
 According to the results, when using three methods, we get same 'best subset' which 'population, murder, hs\_grad and frost'.
 
-Question 1-b)
+Question 2-b)
 -------------
 
 ``` r
@@ -381,7 +477,7 @@ anova(fitted_model, fitted_less_model)
 
 The adjuested r-square of the model without 'population' is slightly less than the adjuested r-square of the model with 'population' and AIC of the model with 'population' also perform better, so keeping the `population` variable is a better choice.
 
-Question 1-c)
+Question 2-c)
 -------------
 
 ``` r
@@ -448,7 +544,7 @@ state_criterion_df =
   as.data.frame() %>% 
   select(life_exp, everything())
 
-# Printing the 2 best models of each size, using the Cp criterion:
+# Printing the best models of each size, using the Cp criterion:
 leaps(x = state_criterion_df[,2:8], y = state_criterion_df[,1], nbest = 1, method = "Cp")
 ```
 
@@ -473,7 +569,7 @@ leaps(x = state_criterion_df[,2:8], y = state_criterion_df[,1], nbest = 1, metho
     ## [1] 16.126760  9.669894  3.739878  2.019659  4.008737  6.001959  8.000000
 
 ``` r
-# Printing the 2 best models of each size, using the adjusted R^2 criterion:
+# Printing the best models of each size, using the adjusted R^2 criterion:
 leaps(x = state_criterion_df[,2:8], y = state_criterion_df[,1], nbest = 1, method = "adjr2")
 ```
 
@@ -536,7 +632,7 @@ abline(0,1)
 plot(2:(length(rs$cp) + 1), rs$adjr2, xlab = "Num of parameters", ylab = "Adj R2")
 ```
 
-![](BM_HW5_files/figure-markdown_github/unnamed-chunk-10-1.png)
+![](BM_HW5_files/figure-markdown_github/unnamed-chunk-18-1.png)
 
 According to the Cp and adjusted r-square results, number of parameters are 4 to 8 are better models, so we count AIC and BIC of these models.
 
@@ -630,13 +726,87 @@ Question 4
 
 Since the model selected from part 2 and part 3 is the same which is `lm(life_exp ~ murder + hs_grad + frost + population, data = state_criterion_df)`, so the final model is `lm(life_exp ~ murder + hs_grad + frost + population, data = state_criterion_df)`.
 
-### leverage
-
-### model assumptions
-
 ``` r
-par(mfrow=c(2,2))
+par(mfrow = c(2,2))
 plot(fitted_5_model)
 ```
 
-![](BM_HW5_files/figure-markdown_github/unnamed-chunk-12-1.png)
+![](BM_HW5_files/figure-markdown_github/unnamed-chunk-20-1.png)
+
+### leverage
+
+According to the "Residuals vs Leverage" plot, there are no leverage in this data.
+
+### model Assumptions
+
+According to the 'Residuals vs Fitted' plot and 'Scale-Location\` plot, we can find that residuals are randomly spread along the change of fitted values and red lines are almost striaight and horizontal, which means the residuals are almost constant across the range of Xs. However, read lines are slightly curve around 71, which means the reiduals around 71 might be slightly lower.
+
+For 'Normal Q-Q plot', we can see all dots except first and last few dots spread around the line, considering there are only 50 observations, this is a small sample. This outliers are normal and overall, residuals are normally distributed.
+
+Question 5
+----------
+
+### 10-fold cross-validation
+
+``` r
+train_data = trainControl(method = "cv", number = 10)
+
+# Fit the 4-variables model that we discussed in previous lectures
+model_caret = 
+  train(life_exp ~ murder + hs_grad + frost + population,
+                   data = state_clean_df,
+                   trControl = train_data,
+                   method = 'lm',
+                   na.action = na.pass)
+
+model_caret
+```
+
+    ## Linear Regression 
+    ## 
+    ## 50 samples
+    ##  4 predictor
+    ## 
+    ## No pre-processing
+    ## Resampling: Cross-Validated (10 fold) 
+    ## Summary of sample sizes: 46, 44, 46, 45, 44, 45, ... 
+    ## Resampling results:
+    ## 
+    ##   RMSE       Rsquared   MAE      
+    ##   0.7643322  0.7389997  0.6465613
+    ## 
+    ## Tuning parameter 'intercept' was held constant at a value of TRUE
+
+Model coefficients
+
+``` r
+model_caret$finalModel
+```
+
+    ## 
+    ## Call:
+    ## lm(formula = .outcome ~ ., data = dat)
+    ## 
+    ## Coefficients:
+    ## (Intercept)       murder      hs_grad        frost   population  
+    ##   7.103e+01   -3.001e-01    4.658e-02   -5.943e-03    5.014e-05
+
+Results of each fold
+
+``` r
+model_caret$resample
+```
+
+    ##         RMSE  Rsquared       MAE Resample
+    ## 1  1.0529624 0.6488865 0.7303670   Fold01
+    ## 2  0.6637024 0.8561644 0.5962412   Fold02
+    ## 3  0.9693550 0.9196415 0.8417161   Fold03
+    ## 4  1.0830380 0.1595651 1.0167564   Fold04
+    ## 5  0.6422060 0.8016910 0.5410999   Fold05
+    ## 6  0.5119089 0.8886039 0.3959724   Fold06
+    ## 7  0.8808298 0.3408490 0.8059004   Fold07
+    ## 8  0.7036066 0.8412051 0.6438501   Fold08
+    ## 9  0.5138948 0.9892952 0.3660046   Fold09
+    ## 10 0.6218181 0.9440959 0.5277051   Fold10
+
+### residual sampling

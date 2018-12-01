@@ -9,6 +9,8 @@ output: github_document
 library(tidyverse)
 library(faraway)
 library(leaps)
+library(caret)
+library(patchwork)
 ```
 
 ## Input and tidy data
@@ -26,7 +28,64 @@ state_clean_df =
 state_clean_df 
 ```
 
-## Question 1-a)
+## Question 1
+
+```{r}
+summary(state_clean_df)
+```
+
+```{r}
+population_boxplot = 
+  state_clean_df %>% 
+  ggplot(aes(x = "population", y = population)) +
+  geom_boxplot()
+```
+
+```{r}
+illiteracy_boxplot = 
+  state_clean_df %>% 
+  ggplot(aes(x = "illiteracy", y = illiteracy)) +
+  geom_boxplot()
+```
+
+```{r}
+life_exp_boxplot = 
+  state_clean_df %>% 
+  ggplot(aes(x = "life_exp", y = life_exp)) +
+  geom_boxplot()
+```
+
+```{r}
+murder_boxplot = 
+  state_clean_df %>% 
+  ggplot(aes(x = "murder", y = murder)) +
+  geom_boxplot()
+```
+
+```{r}
+hs_grad_boxplot = 
+  state_clean_df %>% 
+  ggplot(aes(x = "hs_grad", y = hs_grad)) +
+  geom_boxplot()
+```
+
+```{r}
+frost_boxplot = 
+  state_clean_df %>% 
+  ggplot(aes(x = "frost", y = frost)) +
+  geom_boxplot()
+```
+
+```{r}
+area_boxplot = 
+  state_clean_df %>% 
+  ggplot(aes(x = "area", y = area)) +
+  geom_boxplot()
+
+(population_boxplot + illiteracy_boxplot + area_boxplot)/(murder_boxplot + hs_grad_boxplot + frost_boxplot + life_exp_boxplot)
+```
+
+## Question 2-a)
 
 ### Backward
 
@@ -51,7 +110,7 @@ step(all_fit, direction = 'both')
 
 According to the results, when using three methods, we get same 'best subset' which 'population, murder, hs_grad and frost'. 
 
-## Question 1-b)
+## Question 2-b)
 
 ```{r}
 fitted_model = lm(formula = life_exp ~ population + murder + hs_grad + frost, 
@@ -74,7 +133,7 @@ anova(fitted_model, fitted_less_model)
 
 The adjuested r-square of the model without 'population' is slightly less than the adjuested r-square of the model with 'population' and AIC of the model with 'population' also perform better, so keeping the `population` variable is a better choice.
 
-## Question 1-c)
+## Question 2-c)
 
 ```{r}
 add_illiteracy_model = lm(formula = life_exp ~ murder + hs_grad + frost + illiteracy, 
@@ -95,10 +154,10 @@ state_criterion_df =
   as.data.frame() %>% 
   select(life_exp, everything())
 
-# Printing the 2 best models of each size, using the Cp criterion:
+# Printing the best models of each size, using the Cp criterion:
 leaps(x = state_criterion_df[,2:8], y = state_criterion_df[,1], nbest = 1, method = "Cp")
 
-# Printing the 2 best models of each size, using the adjusted R^2 criterion:
+# Printing the best models of each size, using the adjusted R^2 criterion:
 leaps(x = state_criterion_df[,2:8], y = state_criterion_df[,1], nbest = 1, method = "adjr2")
 
 # Summary of models for each size (one model per size)
@@ -168,19 +227,49 @@ Since model with 5 parameters has highest adjusted r-square, lowest AIC and BIC 
 
 Since the model selected from part 2 and part 3 is the same which is `lm(life_exp ~ murder + hs_grad + frost + population, data = state_criterion_df)`, so the final model is `lm(life_exp ~ murder + hs_grad + frost + population, data = state_criterion_df)`.
 
-### leverage
-
-
-
-### model assumptions
-
 ```{r}
-par(mfrow=c(2,2))
+par(mfrow = c(2,2))
 plot(fitted_5_model)
 ```
 
+### leverage
 
+According to the "Residuals vs Leverage" plot, there are no leverage in this data.
 
+### model Assumptions
 
+According to the 'Residuals vs Fitted' plot and 'Scale-Location` plot, we can find that residuals are randomly spread along the change of fitted values and red lines are almost striaight and horizontal, which means the residuals are almost constant across the range of Xs. However, read lines are slightly curve around 71, which means the reiduals around 71 might be slightly lower.
 
+For 'Normal Q-Q plot', we can see all dots except first and last few dots spread around the line, considering there are only 50 observations, this is a small sample. This outliers are normal and overall, residuals are normally distributed.
 
+## Question 5
+
+### 10-fold cross-validation
+
+```{r}
+train_data = trainControl(method = "cv", number = 10)
+
+# Fit the 4-variables model that we discussed in previous lectures
+model_caret = 
+  train(life_exp ~ murder + hs_grad + frost + population,
+                   data = state_clean_df,
+                   trControl = train_data,
+                   method = 'lm',
+                   na.action = na.pass)
+
+model_caret
+```
+
+Model coefficients
+
+```{r}
+model_caret$finalModel
+```
+
+Results of each fold
+
+```{r}
+model_caret$resample
+```
+
+### residual sampling
