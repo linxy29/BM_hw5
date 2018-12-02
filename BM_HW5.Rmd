@@ -11,6 +11,7 @@ library(faraway)
 library(leaps)
 library(caret)
 library(patchwork)
+library(rlist)
 ```
 
 ## Input and tidy data
@@ -273,3 +274,57 @@ model_caret$resample
 ```
 
 ### residual sampling
+
+Calculate predicted values and reisduals
+
+```{r}
+lm(life_exp ~ murder + hs_grad + frost + population, data = state_criterion_df)
+
+bootstrap_df = 
+  state_clean_df %>% 
+  mutate(predicted_y = 71.03 - 0.3001*murder + 0.04658*hs_grad - 0.005943*frost + 0.00005014*population)
+
+residual_fun = function(x, y){
+  return(x - y)
+}
+
+residual_l = mapply(residual_fun, bootstrap_df$life_exp, bootstrap_df$predicted_y)
+```
+
+Repeat residuals sampling and count MSE
+
+```{r}
+bootsrap_mse_fun = function(data, rep_num){
+  rep_num = rep_num   # number of repetitions
+  mse_v = vector(mode = "numeric", length = rep_num)
+  
+  len = length(residual_l)
+  for (j in 1:rep_num){
+    # resample residuals 
+    residual_l = list.sample(residual_l, length(residual_l), replace = TRUE)
+    
+    # get new predicted ys and residuals
+    for (n in 1:len) {
+      bootstrap_df$predicted_y[n] = residual_l[n] + bootstrap_df$predicted_y[n]
+      }
+    
+    # fit linear model
+    final_model = lm(predicted_y ~ murder + hs_grad + frost + population, data = bootstrap_df)
+  
+    # get mse
+    mse_v[j] = as.numeric(anova(final_model)["Residuals", "Mean Sq"])
+    }
+  # head(mse_v)
+  return(summary(mse_v))
+}
+
+bootsrap_mse_fun(bootstrap_df, 10) # repeat 10 times
+
+bootsrap_mse_fun(bootstrap_df, 1000) # repeat 10 times
+```
+
+### MSE comparing
+
+Two RMSEs of boostrap method are both larger than MSE of 10-fold cross-validation. When using "residual sampling bootstrap", the MSE become larger and larger after each sampling, so MSEs of "residual sampling" bootstrap cannot refleact the predictivity of models and in this situation, 10-fold cross-validation is better.
+
+

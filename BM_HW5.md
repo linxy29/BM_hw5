@@ -42,6 +42,7 @@ library(caret)
 
 ``` r
 library(patchwork)
+library(rlist)
 ```
 
 Input and tidy data
@@ -769,11 +770,11 @@ model_caret
     ## 
     ## No pre-processing
     ## Resampling: Cross-Validated (10 fold) 
-    ## Summary of sample sizes: 46, 44, 46, 45, 44, 45, ... 
+    ## Summary of sample sizes: 46, 45, 43, 45, 44, 46, ... 
     ## Resampling results:
     ## 
-    ##   RMSE       Rsquared   MAE      
-    ##   0.7643322  0.7389997  0.6465613
+    ##   RMSE       Rsquared   MAE     
+    ##   0.7222647  0.7559273  0.611125
     ## 
     ## Tuning parameter 'intercept' was held constant at a value of TRUE
 
@@ -798,15 +799,86 @@ model_caret$resample
 ```
 
     ##         RMSE  Rsquared       MAE Resample
-    ## 1  1.0529624 0.6488865 0.7303670   Fold01
-    ## 2  0.6637024 0.8561644 0.5962412   Fold02
-    ## 3  0.9693550 0.9196415 0.8417161   Fold03
-    ## 4  1.0830380 0.1595651 1.0167564   Fold04
-    ## 5  0.6422060 0.8016910 0.5410999   Fold05
-    ## 6  0.5119089 0.8886039 0.3959724   Fold06
-    ## 7  0.8808298 0.3408490 0.8059004   Fold07
-    ## 8  0.7036066 0.8412051 0.6438501   Fold08
-    ## 9  0.5138948 0.9892952 0.3660046   Fold09
-    ## 10 0.6218181 0.9440959 0.5277051   Fold10
+    ## 1  0.7934570 0.9099575 0.7271101   Fold01
+    ## 2  0.7736331 0.5472825 0.5869899   Fold02
+    ## 3  0.9089458 0.6582953 0.7397185   Fold03
+    ## 4  0.6905748 0.7916777 0.5523185   Fold04
+    ## 5  0.7757338 0.9056058 0.6027889   Fold05
+    ## 6  0.4378575 0.8758059 0.4234556   Fold06
+    ## 7  0.7578075 0.6384406 0.6486616   Fold07
+    ## 8  0.3429801 0.8216148 0.2343729   Fold08
+    ## 9  0.7067114 0.7733120 0.7002434   Fold09
+    ## 10 1.0349456 0.6372811 0.8955908   Fold10
 
 ### residual sampling
+
+Calculate predicted values and reisduals
+
+``` r
+lm(life_exp ~ murder + hs_grad + frost + population, data = state_criterion_df)
+```
+
+    ## 
+    ## Call:
+    ## lm(formula = life_exp ~ murder + hs_grad + frost + population, 
+    ##     data = state_criterion_df)
+    ## 
+    ## Coefficients:
+    ## (Intercept)       murder      hs_grad        frost   population  
+    ##   7.103e+01   -3.001e-01    4.658e-02   -5.943e-03    5.014e-05
+
+``` r
+bootstrap_df = 
+  state_clean_df %>% 
+  mutate(predicted_y = 71.03 - 0.3001*murder + 0.04658*hs_grad - 0.005943*frost + 0.00005014*population)
+
+residual_fun = function(x, y){
+  return(x - y)
+}
+
+residual_l = mapply(residual_fun, bootstrap_df$life_exp, bootstrap_df$predicted_y)
+```
+
+Repeat residuals sampling and count MSE
+
+``` r
+bootsrap_mse_fun = function(data, rep_num){
+  rep_num = rep_num   # number of repetitions
+  mse_v = vector(mode = "numeric", length = rep_num)
+  
+  len = length(residual_l)
+  for (j in 1:rep_num){
+    # resample residuals 
+    residual_l = list.sample(residual_l, length(residual_l), replace = TRUE)
+    
+    # get new predicted ys and residuals
+    for (n in 1:len) {
+      bootstrap_df$predicted_y[n] = residual_l[n] + bootstrap_df$predicted_y[n]
+      }
+    
+    # fit linear model
+    final_model = lm(predicted_y ~ murder + hs_grad + frost + population, data = bootstrap_df)
+  
+    # get mse
+    mse_v[j] = as.numeric(anova(final_model)["Residuals", "Mean Sq"])
+    }
+  # head(mse_v)
+  return(summary(mse_v))
+}
+
+bootsrap_mse_fun(bootstrap_df, 10) # repeat 10 times
+```
+
+    ##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+    ##  0.4549  1.7909  2.5904  2.6251  3.7040  4.7385
+
+``` r
+bootsrap_mse_fun(bootstrap_df, 1000) # repeat 10 times
+```
+
+    ##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+    ##  0.4399 27.4897 27.4897 26.5431 27.4897 27.6486
+
+### MSE comparing
+
+Two RMSEs of boostrap method are both larger than MSE of 10-fold cross-validation. When using "residual sampling bootstrap", the MSE become larger and larger after each sampling, so MSEs of "residual sampling" bootstrap cannot refleact the predictivity of models and in this situation, 10-fold cross-validation is better.
