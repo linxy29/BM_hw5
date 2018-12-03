@@ -43,7 +43,19 @@ library(caret)
 ``` r
 library(patchwork)
 library(rlist)
+library(ModelMetrics)
 ```
+
+    ## 
+    ## Attaching package: 'ModelMetrics'
+
+    ## The following objects are masked from 'package:caret':
+    ## 
+    ##     confusionMatrix, precision, recall, sensitivity, specificity
+
+    ## The following object is masked from 'package:base':
+    ## 
+    ##     kappa
 
 Input and tidy data
 -------------------
@@ -121,6 +133,13 @@ population_boxplot =
 ```
 
 ``` r
+income_boxplot = 
+  state_clean_df %>% 
+  ggplot(aes(x = "income", y = income)) +
+  geom_boxplot()
+```
+
+``` r
 illiteracy_boxplot = 
   state_clean_df %>% 
   ggplot(aes(x = "illiteracy", y = illiteracy)) +
@@ -161,10 +180,10 @@ area_boxplot =
   ggplot(aes(x = "area", y = area)) +
   geom_boxplot()
 
-(population_boxplot + illiteracy_boxplot + area_boxplot)/(murder_boxplot + hs_grad_boxplot + frost_boxplot + life_exp_boxplot)
+(population_boxplot + income_boxplot + illiteracy_boxplot + area_boxplot)/(murder_boxplot + hs_grad_boxplot + frost_boxplot + life_exp_boxplot)
 ```
 
-![](BM_HW5_files/figure-markdown_github/unnamed-chunk-11-1.png)
+![](BM_HW5_files/figure-markdown_github/unnamed-chunk-12-1.png)
 
 Question 2-a)
 -------------
@@ -173,7 +192,7 @@ Question 2-a)
 
 ``` r
 all_fit = lm(life_exp ~ ., data = state_clean_df)
-step(all_fit, direction='backward')
+step(all_fit, direction = 'backward')
 ```
 
     ## Start:  AIC=-22.18
@@ -374,7 +393,7 @@ step(all_fit, direction = 'both')
     ## (Intercept)   population       murder      hs_grad        frost  
     ##   7.103e+01    5.014e-05   -3.001e-01    4.658e-02   -5.943e-03
 
-According to the results, when using three methods, we get same 'best subset' which 'population, murder, hs\_grad and frost'.
+According to the results, when using three methods, we get same 'best subset' which is 'population, murder, hs\_grad and frost'. Even though this three methos sometimes give different results, since they decide base on same criterion which is ACI, in this situation, they give the same result.
 
 Question 2-b)
 -------------
@@ -476,16 +495,19 @@ anova(fitted_model, fitted_less_model)
     ## ---
     ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 
-The adjuested r-square of the model without 'population' is slightly less than the adjuested r-square of the model with 'population' and AIC of the model with 'population' also perform better, so keeping the `population` variable is a better choice.
+Even though when using anova to test models with and without `population`, the F-statistics is slightly larger than 0.05, the adjuested r-square of the model without 'population' is slightly less than the adjuested r-square of the model with 'population' and AIC of the model with 'population' also perform better, so keeping the `population` variable is a better choice.
 
 Question 2-c)
 -------------
 
 ``` r
-add_illiteracy_model = lm(formula = life_exp ~ murder + hs_grad + frost + illiteracy, 
+add_illiteracy_model1 = lm(formula = life_exp ~ murder + hs_grad + frost + illiteracy, 
     data = state_clean_df)
 
-summary(add_illiteracy_model)
+add_illiteracy_model2 = lm(formula = life_exp ~ murder + hs_grad + frost + illiteracy + hs_grad*illiteracy, 
+    data = state_clean_df)
+
+summary(add_illiteracy_model1)
 ```
 
     ## 
@@ -512,6 +534,34 @@ summary(add_illiteracy_model)
     ## F-statistic: 28.17 on 4 and 45 DF,  p-value: 9.547e-12
 
 ``` r
+summary(add_illiteracy_model2)
+```
+
+    ## 
+    ## Call:
+    ## lm(formula = life_exp ~ murder + hs_grad + frost + illiteracy + 
+    ##     hs_grad * illiteracy, data = state_clean_df)
+    ## 
+    ## Residuals:
+    ##      Min       1Q   Median       3Q      Max 
+    ## -1.50568 -0.53057  0.03017  0.51545  1.23415 
+    ## 
+    ## Coefficients:
+    ##                     Estimate Std. Error t value Pr(>|t|)    
+    ## (Intercept)        73.935949   2.199015  33.622  < 2e-16 ***
+    ## murder             -0.261781   0.041582  -6.295 1.24e-07 ***
+    ## hs_grad            -0.001024   0.037973  -0.027   0.9786    
+    ## frost              -0.007487   0.002804  -2.670   0.0106 *  
+    ## illiteracy         -1.940250   1.327124  -1.462   0.1508    
+    ## hs_grad:illiteracy  0.033590   0.024577   1.367   0.1787    
+    ## ---
+    ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+    ## 
+    ## Residual standard error: 0.7412 on 44 degrees of freedom
+    ## Multiple R-squared:  0.7262, Adjusted R-squared:  0.6951 
+    ## F-statistic: 23.34 on 5 and 44 DF,  p-value: 2.242e-11
+
+``` r
 cor(state_clean_df)
 ```
 
@@ -534,7 +584,7 @@ cor(state_clean_df)
     ## frost       0.36677970  1.0000000  0.05922910
     ## area        0.33354187  0.0592291  1.00000000
 
-The correlation of `hs_grad` and `illiteracy` is -0.657 and when adding `illiteracy` in model, the coefficient of `hs_grad` change slightly, thus there are low association between `hs_grad` and `illiteracy` and my subset only contain `hs_grad`.
+The correlation of `hs_grad` and `illiteracy` is -0.657. When adding `illiteracy` in model, the correlation of `hs_grad` change slightly and interaction of `hs_grad` and `illiteracy` is not significant, thus there are low association between `hs_grad` and `illiteracy` and my subset only contain `hs_grad`.
 
 Question 3
 ----------
@@ -633,7 +683,7 @@ abline(0,1)
 plot(2:(length(rs$cp) + 1), rs$adjr2, xlab = "Num of parameters", ylab = "Adj R2")
 ```
 
-![](BM_HW5_files/figure-markdown_github/unnamed-chunk-18-1.png)
+![](BM_HW5_files/figure-markdown_github/unnamed-chunk-19-1.png)
 
 According to the Cp and adjusted r-square results, number of parameters are 4 to 8 are better models, so we count AIC and BIC of these models.
 
@@ -720,19 +770,19 @@ AIC(fitted_8_model, k = log(length(state_criterion_df$life_exp)))
 | AIC                  | 117.974 | 115.733 | 117.720 | 119.712 | 121.709 |
 | BIC                  | 127.534 | 127.205 | 131.104 | 135.008 | 138.917 |
 
-Since model with 5 parameters has highest adjusted r-square, lowest AIC and BIC and its Cp lower than p, so 'best subset' is 'pulation, murder, hs\_grad and frost'.
+When considering Cp, model with 4 parameters is the best, while model with 5 parameters performs better in adjusted r-square, AIC and BIC. However, adding `population` doesn't result in significant changes in adjusted r-square, AIC and BIC(change 6%), so based on Cp and 'principle of parsimony', 'best subset' is 'murder, hs\_grad and frost'.
 
 Question 4
 ----------
 
-Since the model selected from part 2 and part 3 is the same which is `lm(life_exp ~ murder + hs_grad + frost + population, data = state_criterion_df)`, so the final model is `lm(life_exp ~ murder + hs_grad + frost + population, data = state_criterion_df)`.
+The model selected from part 2 is `lm(life_exp ~ murder + hs_grad + frost + population, data = state_criterion_df)` and the model selected form part 3 is `lm(life_exp ~ murder + hs_grad + frost + population, data = state_criterion_df)`. Since adding `population` doesn't result in significant changes in adjusted r-square, AIC and BIC(change 6%), so based on Cp and 'principle of parsimony', the final model is `lm(life_exp ~ murder + hs_grad + frost, data = state_criterion_df)`.
 
 ``` r
 par(mfrow = c(2,2))
 plot(fitted_5_model)
 ```
 
-![](BM_HW5_files/figure-markdown_github/unnamed-chunk-20-1.png)
+![](BM_HW5_files/figure-markdown_github/unnamed-chunk-21-1.png)
 
 ### leverage
 
@@ -740,7 +790,7 @@ According to the "Residuals vs Leverage" plot, there are no leverage in this dat
 
 ### model Assumptions
 
-According to the 'Residuals vs Fitted' plot and 'Scale-Location\` plot, we can find that residuals are randomly spread along the change of fitted values and red lines are almost striaight and horizontal, which means the residuals are almost constant across the range of Xs. However, read lines are slightly curve around 71, which means the reiduals around 71 might be slightly lower.
+According to the 'Residuals vs Fitted' plot and 'Scale-Location\` plot, we can find that residuals are randomly spread along the change of fitted values and red lines are almost striaight and horizontal, which means the residuals are almost constant across the range of Xs and independent. Linear relationship exits as well. However, read lines are slightly curve around 71, which means the reiduals around 71 might be slightly lower.
 
 For 'Normal Q-Q plot', we can see all dots except first and last few dots spread around the line, considering there are only 50 observations, this is a small sample. This outliers are normal and overall, residuals are normally distributed.
 
@@ -754,7 +804,7 @@ train_data = trainControl(method = "cv", number = 10)
 
 # Fit the 4-variables model that we discussed in previous lectures
 model_caret = 
-  train(life_exp ~ murder + hs_grad + frost + population,
+  train(life_exp ~ murder + hs_grad + frost,
                    data = state_clean_df,
                    trControl = train_data,
                    method = 'lm',
@@ -766,15 +816,15 @@ model_caret
     ## Linear Regression 
     ## 
     ## 50 samples
-    ##  4 predictor
+    ##  3 predictor
     ## 
     ## No pre-processing
     ## Resampling: Cross-Validated (10 fold) 
-    ## Summary of sample sizes: 46, 45, 43, 45, 44, 46, ... 
+    ## Summary of sample sizes: 42, 45, 45, 46, 46, 45, ... 
     ## Resampling results:
     ## 
     ##   RMSE       Rsquared   MAE     
-    ##   0.7222647  0.7559273  0.611125
+    ##   0.7245647  0.7108188  0.616553
     ## 
     ## Tuning parameter 'intercept' was held constant at a value of TRUE
 
@@ -789,8 +839,8 @@ model_caret$finalModel
     ## lm(formula = .outcome ~ ., data = dat)
     ## 
     ## Coefficients:
-    ## (Intercept)       murder      hs_grad        frost   population  
-    ##   7.103e+01   -3.001e-01    4.658e-02   -5.943e-03    5.014e-05
+    ## (Intercept)       murder      hs_grad        frost  
+    ##   71.036379    -0.283065     0.049949    -0.006912
 
 Results of each fold
 
@@ -799,86 +849,86 @@ model_caret$resample
 ```
 
     ##         RMSE  Rsquared       MAE Resample
-    ## 1  0.7934570 0.9099575 0.7271101   Fold01
-    ## 2  0.7736331 0.5472825 0.5869899   Fold02
-    ## 3  0.9089458 0.6582953 0.7397185   Fold03
-    ## 4  0.6905748 0.7916777 0.5523185   Fold04
-    ## 5  0.7757338 0.9056058 0.6027889   Fold05
-    ## 6  0.4378575 0.8758059 0.4234556   Fold06
-    ## 7  0.7578075 0.6384406 0.6486616   Fold07
-    ## 8  0.3429801 0.8216148 0.2343729   Fold08
-    ## 9  0.7067114 0.7733120 0.7002434   Fold09
-    ## 10 1.0349456 0.6372811 0.8955908   Fold10
+    ## 1  0.8758885 0.5196129 0.8148450   Fold01
+    ## 2  0.8867252 0.7861252 0.7938830   Fold02
+    ## 3  0.7574062 0.4634455 0.5245758   Fold03
+    ## 4  0.6390061 0.4623053 0.4567692   Fold04
+    ## 5  0.5557038 0.9291713 0.4201140   Fold05
+    ## 6  0.7731579 0.9212567 0.5935131   Fold06
+    ## 7  0.8879639 0.5184458 0.8167322   Fold07
+    ## 8  0.3524920 0.9356836 0.3151229   Fold08
+    ## 9  0.6817420 0.7781145 0.6660879   Fold09
+    ## 10 0.8355611 0.7940269 0.7638873   Fold10
 
 ### residual sampling
 
 Calculate predicted values and reisduals
 
 ``` r
-lm(life_exp ~ murder + hs_grad + frost + population, data = state_criterion_df)
-```
+selected_model = lm(life_exp ~ murder + hs_grad + frost, data = state_clean_df)
 
-    ## 
-    ## Call:
-    ## lm(formula = life_exp ~ murder + hs_grad + frost + population, 
-    ##     data = state_criterion_df)
-    ## 
-    ## Coefficients:
-    ## (Intercept)       murder      hs_grad        frost   population  
-    ##   7.103e+01   -3.001e-01    4.658e-02   -5.943e-03    5.014e-05
-
-``` r
 bootstrap_df = 
   state_clean_df %>% 
-  mutate(predicted_y = 71.03 - 0.3001*murder + 0.04658*hs_grad - 0.005943*frost + 0.00005014*population)
+  mutate(predicted_y = 71.03 - 0.3001*murder + 0.04658*hs_grad - 0.005943*frost,
+         sample_y = life_exp)
 
 residual_fun = function(x, y){
   return(x - y)
 }
 
-residual_l = mapply(residual_fun, bootstrap_df$life_exp, bootstrap_df$predicted_y)
+#predicted_y = predict(final_model)
+residual_base = mapply(residual_fun, bootstrap_df$life_exp, bootstrap_df$predicted_y)
+#sample_y = residual_l + predicted_y
+#test = cbind(state_criterion_df, sample_y)
 ```
 
 Repeat residuals sampling and count MSE
 
 ``` r
-bootsrap_mse_fun = function(data, rep_num){
-  rep_num = rep_num   # number of repetitions
-  mse_v = vector(mode = "numeric", length = rep_num)
+bootsrap_mse_fun = function(rep_num){
+  #rep_num = rep_num   # number of repetitions
+  #rep_num = 100  # for test
+  rmse_v = vector(mode = "numeric", length = rep_num)
   
-  len = length(residual_l)
+  len = length(residual_base)
   for (j in 1:rep_num){
     # resample residuals 
-    residual_l = list.sample(residual_l, length(residual_l), replace = TRUE)
+    residual_l = sample(residual_base, len, replace = TRUE)
     
-    # get new predicted ys and residuals
+    # get new sample ys and residuals
     for (n in 1:len) {
-      bootstrap_df$predicted_y[n] = residual_l[n] + bootstrap_df$predicted_y[n]
+      bootstrap_df$sample_y[n] = residual_l[n] + bootstrap_df$predicted_y[n]
       }
-    
+
     # fit linear model
-    final_model = lm(predicted_y ~ murder + hs_grad + frost + population, data = bootstrap_df)
+    final_model = lm(sample_y ~ murder + hs_grad + frost, data = bootstrap_df)
   
     # get mse
-    mse_v[j] = as.numeric(anova(final_model)["Residuals", "Mean Sq"])
+    rmse_v[j] = rmse(final_model)
     }
-  # head(mse_v)
-  return(summary(mse_v))
+  rmse_v    # for test 
+  return(summary(rmse_v))
 }
 
-bootsrap_mse_fun(bootstrap_df, 10) # repeat 10 times
+bootsrap_mse_fun(10) # repeat 10 times
 ```
 
     ##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-    ##  0.4549  1.7909  2.5904  2.6251  3.7040  4.7385
+    ##  0.6303  0.6824  0.6912  0.6952  0.7147  0.7513
 
 ``` r
-bootsrap_mse_fun(bootstrap_df, 1000) # repeat 10 times
+bootsrap_mse_fun(1000) # repeat 10 times
 ```
 
     ##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-    ##  0.4399 27.4897 27.4897 26.5431 27.4897 27.6486
+    ##  0.5005  0.6467  0.6850  0.6839  0.7223  0.8654
 
 ### MSE comparing
 
-Two RMSEs of boostrap method are both larger than MSE of 10-fold cross-validation. When using "residual sampling bootstrap", the MSE become larger and larger after each sampling, so MSEs of "residual sampling" bootstrap cannot refleact the predictivity of models and in this situation, 10-fold cross-validation is better.
+``` r
+rmse(selected_model)
+```
+
+    ## [1] 0.712343
+
+Using "residual sampling bootstrap" benefits when data's residuals do not follow normal distribution. However, based on our test results of model assumption, residuals of this data are normal distributed, thus both two methods can be used to test model. However, 10-fold cross-validation is easier so it is recommended
